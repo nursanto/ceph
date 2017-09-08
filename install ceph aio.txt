@@ -15,7 +15,7 @@ echo "cephuser ALL = (root) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/cephuser
 chmod 0440 /etc/sudoers.d/cephuser
 sed -i s'/Defaults requiretty/#Defaults requiretty'/g /etc/sudoers
 
-vi /etc/host
+vi /etc/hosts
 # add ip and host
 192.168.10.207	node-1
 
@@ -40,6 +40,7 @@ mkfs.xfs /dev/sdd -f
 sudo rpm -Uhv http://download.ceph.com/rpm-jewel/el7/noarch/ceph-release-1-1.el7.noarch.rpm
 sudo yum update -y && sudo yum install ceph-deploy -y
 
+su - cephuser
 mkdir cluster
 cd cluster/
 
@@ -50,12 +51,12 @@ vi ceph.conf
 public network = 192.168.10.0/24
 osd pool default size = 2
 
-ceph-deploy install ceph-admin node-1
+ceph-deploy install node-1
 ceph-deploy mon create-initial
 ceph-deploy gatherkeys node-1
 
 ceph-deploy disk zap node-1:/dev/sdb node-1:/dev/sdc node-1:/dev/sdd
 ceph-deploy osd prepare node-1:/dev/sdb node-1:/dev/sdc node-1:/dev/sdd
 ceph-deploy osd activate node-1:/dev/sdb1 node-1:/dev/sdc1 node-1:/dev/sdd1
-ceph-deploy admin ceph-admin node-1
+ceph-deploy admin node-1
 sudo chmod 644 /etc/ceph/ceph.client.admin.keyring
