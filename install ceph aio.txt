@@ -1,0 +1,61 @@
+systemctl disable firewalld
+systemctl stop firewalld
+systemctl disable NetworkManager
+systemctl stop NetworkManager
+systemctl enable network
+systemctl start network
+
+sed -i 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/selinux/config
+
+
+useradd -d /home/cephuser -m cephuser
+passwd cephuser
+
+echo "cephuser ALL = (root) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/cephuser
+chmod 0440 /etc/sudoers.d/cephuser
+sed -i s'/Defaults requiretty/#Defaults requiretty'/g /etc/sudoers
+
+vi /etc/host
+# add ip and host
+192.168.10.207	node-1
+
+su - cephuser
+ssh-keygen
+vi ~/.ssh/config
+	Host node-1
+        Hostname node-1
+        User cephuser
+		
+chmod 644 ~/.ssh/config
+ssh-copy-id [anothernode hostname]
+
+parted -s /dev/sdb mklabel gpt mkpart primary xfs 0% 100%
+parted -s /dev/sdc mklabel gpt mkpart primary xfs 0% 100%
+parted -s /dev/sdd mklabel gpt mkpart primary xfs 0% 100%
+
+mkfs.xfs /dev/sdb -f
+mkfs.xfs /dev/sdc -f
+mkfs.xfs /dev/sdd -f
+
+sudo rpm -Uhv http://download.ceph.com/rpm-jewel/el7/noarch/ceph-release-1-1.el7.noarch.rpm
+sudo yum update -y && sudo yum install ceph-deploy -y
+
+mkdir cluster
+cd cluster/
+
+ceph-deploy new node-1
+
+vi ceph.conf
+# Your network address
+public network = 192.168.10.0/24
+osd pool default size = 2
+
+ceph-deploy install ceph-admin node-1
+ceph-deploy mon create-initial
+ceph-deploy gatherkeys node-1
+
+ceph-deploy disk zap node-1:/dev/sdb node-1:/dev/sdc node-1:/dev/sdd
+ceph-deploy osd prepare node-1:/dev/sdb node-1:/dev/sdc node-1:/dev/sdd
+ceph-deploy osd activate node-1:/dev/sdb1 node-1:/dev/sdc1 node-1:/dev/sdd1
+ceph-deploy admin ceph-admin node-1
+sudo chmod 644 /etc/ceph/ceph.client.admin.keyring

@@ -1,0 +1,39 @@
+ceph health detail
+ceph osd tree
+ceph osd find (osd number)
+ceph osd lspools
+rados -p compute ls
+rbd --pool compute ls
+ceph osd map pool-A object-A
+
+ceph osd pool set {poolname} size {num-replicas}
+ceph osd pool set data size 3
+ceph osd dump | grep 'replicated size'
+ceph osd pool set <poolname> crush_ruleset 4
+
+To get the number of placement groups in a pool, execute the following:
+ceph osd pool get {pool-name} pg_num
+
+service ceph-osd status id=3 ##in ceph/osd node
+
+ceph pg 4.46 list_missing
+
+rbd --pool compute ls | while read image ; do rbd --pool ovh info $image; done | grep -C 5 1153c74b0dc51
+rados -p compute ls | grep rbd_data | wc -l
+rados -p compute ls | grep rbd_header | wc -l
+rados -p compute ls | grep rbd_id | wc -l
+./rbd-placement volumes 2578a6ed-2bab-4f71-910d-d42f18c80d11_disk
+ route add -net 192.168.1.1 netmask 255.255.255.255 gw 192.168.1.10
+
+
+# crushtool -c crushmap-decompile -o crushmap-compiled
+# ceph osd setcrushmap -i crushmap-compiled
+
+# ceph osd pool set images crush_ruleset 1
+# ceph osd pool set compute crush_ruleset 2
+
+service ceph-osd status id=3 ##in ceph/osd node
+ceph osd set noup # prevent osds from getting marked up
+ceph osd set nodown # prevent osds from getting marked down
+
+systemctl start ceph-osd@0
