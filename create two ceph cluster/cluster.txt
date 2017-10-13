@@ -1,0 +1,65 @@
+SUBNET=$(ip r | grep -o '[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}/[0-9]\{1,2\}' | head -1)
+IPADDRESS=$(ip r | grep -o '[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}' | tail -1)
+HOST_NAME=$(hostname)
+USER_NAME=cephuser
+
+useradd $USER_NAME
+passwd -fu $USER_NAME
+echo "cephuser ALL = (root) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/$USER_NAME
+chmod 0440 /etc/sudoers.d/$USER_NAME
+sed -i s'/Defaults requiretty/#Defaults requiretty'/g /etc/sudoers
+
+systemctl disable firewalld
+systemctl stop firewalld
+systemctl disable NetworkManager
+systemctl stop NetworkManager
+systemctl enable network
+systemctl start network
+sed -i 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/selinux/config
+
+echo "$IPADDRESS   $HOST_NAME" >> /etc/hosts
+
+parted -s /dev/sdb mklabel gpt mkpart $HOST_NAME xfs 0% 100%
+parted -s /dev/sdc mklabel gpt mkpart $HOST_NAME xfs 0% 100%
+parted -s /dev/sdd mklabel gpt mkpart $HOST_NAME xfs 0% 100%
+
+mkfs.xfs /dev/sdb -f
+mkfs.xfs /dev/sdc -f
+mkfs.xfs /dev/sdd -f
+
+rpm -Uhv http://download.ceph.com/rpm-jewel/el7/noarch/ceph-release-1-1.el7.noarch.rpm
+sleep 10
+yum update -y
+sleep 10
+yum install ceph-deploy -y
+sleep 10
+
+su - $USER_NAME
+SUBNET=$(ip r | grep -o '[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}/[0-9]\{1,2\}' | head -1)
+IPADDRESS=$(ip r | grep -o '[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}' | tail -1)
+HOST_NAME=$(hostname)
+USER_NAME=cephuser
+
+mkdir cluster
+cd cluster/
+ceph-deploy new $HOST_NAME
+
+echo "public network = $SUBNET" >> /home/$USER_NAME/cluster/ceph.conf
+echo "osd pool default size = 2" >> /home/$USER_NAME/cluster/ceph.conf
+echo "osd pool default min size = 1" >> /home/$USER_NAME/cluster/ceph.conf
+echo "osd crush chooseleaf type = 0" >> /home/$USER_NAME/cluster/ceph.conf
+
+ceph-deploy install --release jewel $HOST_NAME
+sleep 10
+ceph-deploy mon create-initial
+ceph-deploy gatherkeys $HOST_NAME
+sleep 10
+
+ceph-deploy disk zap $HOST_NAME:/dev/sdb $HOST_NAME:/dev/sdc $HOST_NAME:/dev/sdd
+sleep 10
+ceph-deploy osd prepare $HOST_NAME:/dev/sdb $HOST_NAME:/dev/sdc $HOST_NAME:/dev/sdd
+sleep 10
+ceph-deploy osd activate $HOST_NAME:/dev/sdb1 $HOST_NAME:/dev/sdc1 $HOST_NAME:/dev/sdd1
+sleep 10
+ceph-deploy admin $HOST_NAME
+sudo chmod 644 /etc/ceph/ceph.client.admin.keyring
