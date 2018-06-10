@@ -27,7 +27,7 @@ vi ~/.ssh/config
         User cephuser
 		
 chmod 644 ~/.ssh/config
-ssh-copy-id [anothernode hostname]
+ssh-copy-id [anothernode hostname] # skip for now, we install ceph all in one
 
 parted -s /dev/sdb mklabel gpt mkpart primary xfs 0% 100%
 parted -s /dev/sdc mklabel gpt mkpart primary xfs 0% 100%
